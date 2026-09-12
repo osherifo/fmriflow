@@ -7,8 +7,8 @@ PCA distributed alongside a feature space as its canonical semantic
 subspace).
 
 The basis is typically stored under ``c`` in the source HDF as
-``(fdim, fdim)``, columns ordered by descending variance. The analyzer
-takes the first ``n_components`` columns and expands them to
+``(fdim, fdim)``, one component per row, ordered by descending variance.
+The analyzer takes the first ``n_components`` rows and expands them to
 delayed-feature space by tiling across delays so the downstream
 :class:`~fmriflow.modules.analyzers.project_to_subspace.ProjectToSubspaceAnalyzer`
 projection ``basis.T @ block`` yields the same result as projecting the
@@ -150,7 +150,10 @@ class ExternalPCABasisAnalyzer:
             )
 
         k = min(n_components, raw_basis.shape[1])
-        raw_basis = raw_basis[:, :k]                              # (fdim, K)
+        # Rows of the stored basis are the components (row k = PC k), so keep the
+        # first k rows and transpose: the downstream ``basis.T @ block`` then equals
+        # ``c[:k] @ mean_d(block_d)``, the same projection as ``basis @ weights``.
+        raw_basis = raw_basis[:k, :].T                            # (fdim, K)
         # Tiling + scaling so ``basis.T @ block`` matches projecting the
         # per-delay-averaged weight block with the raw basis:
         #     mean_d(basis^T @ block_d) = basis^T @ mean_d(block_d)
