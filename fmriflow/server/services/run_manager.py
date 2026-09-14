@@ -1298,7 +1298,7 @@ def _apply_summary_to_handle(
     if summary is None and returncode == 0:
         handle.error = f'pipeline exited 0 but produced no {summary_name}'
     elif summary is None and returncode is not None:
-        handle.error = f"pipeline exited with code {returncode}"
+        handle.error = _exit_code_message(returncode)
     elif summary is None:
         handle.error = f'subprocess exited without a {summary_name}'
     else:
@@ -1313,7 +1313,7 @@ def _apply_summary_to_handle(
                 f"{failed_stage.get('detail') or 'stage failed'}"
             )
         elif returncode is not None:
-            handle.error = f"pipeline exited with code {returncode}"
+            handle.error = _exit_code_message(returncode)
         else:
             handle.error = 'pipeline ended in an unknown state'
 
@@ -1333,6 +1333,23 @@ def _apply_summary_to_handle(
         'traceback': (run_error or {}).get('traceback'),
         'node_errors': node_errors,
     })
+
+
+def _exit_code_message(returncode: int) -> str:
+    """Explain a non-zero exit code, naming the signal when the process was killed."""
+    import signal as _signal
+    signum = -returncode if returncode < 0 else (returncode - 128 if returncode > 128 else None)
+    if signum:
+        try:
+            name = _signal.Signals(signum).name
+        except ValueError:
+            name = f"signal {signum}"
+        if signum == _signal.SIGKILL:
+            return (f"pipeline was killed by {name} (exit code {returncode}), most likely out of memory: "
+                    "the kernel stops the process without a Python error. Reduce memory use, e.g. "
+                    "model.params.solver_params: {n_targets_batch: 10000, n_alphas_batch: 5} for himalaya models")
+        return f"pipeline was killed by {name} (exit code {returncode})"
+    return f"pipeline exited with code {returncode}"
 
 
 def _failure_events(events_path: str | None) -> tuple[dict | None, list[dict]]:
