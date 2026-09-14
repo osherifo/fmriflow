@@ -194,6 +194,8 @@ class HimalayaRidgeModel:
         "cv": {"type": "int", "default": 5, "min": 2, "description": "Cross-validation folds"},
         "score_metric": {"type": "string", "default": "r2", "enum": ["r2", "pearson_r"], "description": "Scoring metric"},
         "backend": {"type": "string", "enum": ["numpy", "cupy", "torch", "torch_cuda"], "description": "Compute backend"},
+        "solver_params": {"type": "dict", "default": {},
+                          "description": "RidgeCV solver parameters, e.g. {n_targets_batch: 10000, n_alphas_batch: 5} to cap memory"},
     }
 
     def fit(self, data: PreparedData, config: dict) -> ModelResult:
@@ -208,7 +210,7 @@ class HimalayaRidgeModel:
 
         _set_backend(backend)
 
-        ridge = RidgeCV(alphas=alphas, cv=cv)
+        ridge = RidgeCV(alphas=alphas, cv=cv, solver_params=dict(model_cfg.get('solver_params') or {}) or None)
         ridge.fit(data.X_train, data.Y_train)
 
         Y_pred = _to_numpy(ridge.predict(data.X_test))
